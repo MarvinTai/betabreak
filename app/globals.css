@@ -1,0 +1,100 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --climbing-orange: #ff6b35;
+  --climbing-blue: #1e40af;
+  --climbing-purple: #7c3aed;
+  --climbing-teal: #0d9488;
+  --rock-gray: #64748b;
+  --chalk-white: #f1f5f9;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0f172a;
+    --foreground: #f1f5f9;
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Climbing-themed gradients */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .gradient-climbing {
+    background: linear-gradient(135deg, #ff6b35 0%, #f7931e 50%, #fbb034 100%);
+  }
+  
+  .gradient-rock {
+    background: linear-gradient(135deg, #64748b 0%, #475569 50%, #334155 100%);
+  }
+  
+  .gradient-sky {
+    background: linear-gradient(to bottom, #0ea5e9 0%, #7dd3fc 100%);
+  }
+  
+  .bg-climbing-pattern {
+    background-color: var(--chalk-white);
+    background-image: 
+      radial-gradient(circle at 20% 50%, rgba(255, 107, 53, 0.05) 0%, transparent 50%),
+      radial-gradient(circle at 80% 80%, rgba(30, 64, 175, 0.05) 0%, transparent 50%);
+  }
+  
+  .dark .bg-climbing-pattern {
+    background-color: #1e293b;
+    background-image: 
+      radial-gradient(circle at 20% 50%, rgba(255, 107, 53, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 80% 80%, rgba(30, 64, 175, 0.1) 0%, transparent 50%);
+  }
+  
+  .btn-climbing {
+    @apply px-6 py-3 rounded-xl font-semibold text-white shadow-lg transition-all duration-200 transform hover:scale-105 hover:shadow-xl;
+    background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+  }
+  
+  .btn-climbing:hover {
+    background: linear-gradient(135deg, #f7931e 0%, #ff6b35 100%);
+  }
+  
+  .card-climbing {
+    @apply bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-2 border-transparent transition-all duration-300;
+  }
+  
+  .card-climbing:hover {
+    @apply shadow-2xl border-orange-400 dark:border-orange-500 transform -translate-y-1;
+  }
+  
+  /* Rock texture effect */
+  .rock-texture {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .rock-texture::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+      radial-gradient(circle at 15% 15%, rgba(100, 116, 139, 0.3) 0%, transparent 25%),
+      radial-gradient(circle at 85% 20%, rgba(71, 85, 105, 0.3) 0%, transparent 25%),
+      radial-gradient(circle at 40% 80%, rgba(51, 65, 85, 0.3) 0%, transparent 25%),
+      radial-gradient(circle at 75% 75%, rgba(100, 116, 139, 0.3) 0%, transparent 25%);
+    pointer-events: none;
+  }
+}
+
+
