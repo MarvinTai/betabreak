@@ -6,11 +6,14 @@ import TrainingFocusForm, { TrainingFocusSelection } from '@/components/Training
 import WorkoutCard from '@/components/WorkoutCard';
 import WorkoutDetail from '@/components/WorkoutDetail';
 import { UserProfile, Workout } from '@/types';
+import { useAuth } from '@/lib/supabase/auth';
+import { getProfile, createWorkouts, scheduleWorkout } from '@/lib/supabase/database';
 
 type ViewState = 'form' | 'generating' | 'results';
 
 export default function TrainingSetup() {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [viewState, setViewState] = useState<ViewState>('form');
   const [generatedWorkouts, setGeneratedWorkouts] = useState<Workout[]>([]);
@@ -18,16 +21,33 @@ export default function TrainingSetup() {
   const [error, setError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [progressMessage, setProgressMessage] = useState<string>('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Load profile from localStorage
-    const profileData = localStorage.getItem('userProfile');
-    if (!profileData) {
-      router.push('/');
-      return;
-    }
-    setProfile(JSON.parse(profileData));
-  }, [router]);
+    const fetchProfile = async () => {
+      if (!authLoading && user) {
+        setLoading(true);
+        try {
+          const userProfile = await getProfile(user.id);
+          if (!userProfile) {
+            alert('Please set up your profile first.');
+            router.push('/');
+            return;
+          }
+          setProfile(userProfile);
+        } catch (error) {
+          console.error('Error fetching profile:', error);
+          alert('Failed to load profile. Please try again.');
+          router.push('/');
+        } finally {
+          setLoading(false);
+        }
+      } else if (!authLoading && !user) {
+        router.push('/auth');
+      }
+    };
+    fetchProfile();
+  }, [user, authLoading, router]);
 
   const handleGenerateWorkouts = async (focusData: TrainingFocusSelection) => {
     if (!profile || isGenerating) return;
@@ -101,18 +121,18 @@ export default function TrainingSetup() {
         console.log(`Job ${jobId} status: ${status} (attempt ${attempts})`);
 
         if (status === 'done' && workouts) {
-          // Success! Save workouts
+          // Success! Save workouts to Supabase
+          if (user) {
+            try {
+              await createWorkouts(user.id, workouts);
+              console.log('Workouts saved to Supabase successfully');
+            } catch (saveError) {
+              console.error('Error saving workouts to Supabase:', saveError);
+              // Continue anyway - workouts are generated
+            }
+          }
+          
           setGeneratedWorkouts(workouts);
-          
-          // Save workouts to localStorage
-          const existingWorkouts = localStorage.getItem('workouts');
-          const allWorkouts = existingWorkouts ? JSON.parse(existingWorkouts) : [];
-          const updatedWorkouts = [...allWorkouts, ...workouts];
-          localStorage.setItem('workouts', JSON.stringify(updatedWorkouts));
-          
-          // Save training focus selection
-          localStorage.setItem('trainingFocus', JSON.stringify(focusData));
-
           setViewState('results');
         } else if (status === 'error') {
           throw new Error(jobError || 'Failed to generate workouts');
@@ -134,21 +154,20 @@ export default function TrainingSetup() {
     }
   };
 
-  const handleScheduleWorkout = (workout: Workout) => {
-    // Create properly structured scheduled workout
-    const scheduled = {
-      id: crypto.randomUUID(),
-      workout: workout, // Full workout object
-      scheduledDate: new Date().toISOString(),
-      completed: false,
-    };
-    
-    const existingScheduled = localStorage.getItem('scheduledWorkouts');
-    const allScheduled = existingScheduled ? JSON.parse(existingScheduled) : [];
-    allScheduled.push(scheduled);
-    localStorage.setItem('scheduledWorkouts', JSON.stringify(allScheduled));
-    
-    alert('Workout scheduled! Visit the Calendar to see it.');
+  const handleScheduleWorkout = async (workout: Workout) => {
+    if (!user) {
+      alert('You must be logged in to schedule workouts.');
+      return;
+    }
+
+    try {
+      // Schedule workout to Supabase
+      await scheduleWorkout(user.id, workout.id!, new Date());
+      alert('Workout scheduled! Visit the Calendar to see it.');
+    } catch (error) {
+      console.error('Error scheduling workout:', error);
+      alert('Failed to schedule workout. Please try again.');
+    }
   };
 
   const handleBackToForm = () => {
@@ -157,15 +176,19 @@ export default function TrainingSetup() {
     setError(null);
   };
 
-  if (!profile) {
+  if (authLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-climbing-pattern">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading profile...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-orange-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-400 font-medium">Loading...</p>
         </div>
       </div>
     );
+  }
+
+  if (!user || !profile) {
+    return null; // Will redirect in useEffect
   }
 
   return (
