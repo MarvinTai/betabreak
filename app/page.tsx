@@ -40,19 +40,26 @@ export default function Home() {
     if (!user) return;
 
     try {
+      console.log('Submitting profile...', { hasProfile, userId: user.id });
+      
       if (hasProfile) {
         // Update existing profile
+        console.log('Updating existing profile...');
         await updateProfile(user.id, data);
         alert('Profile updated successfully! ✅');
         setHasProfile(true); // Return to home view
       } else {
         // Create new profile
+        console.log('Creating new profile...');
         await createProfile(user.id, data);
         router.push('/training-setup');
       }
     } catch (error: any) {
       console.error('Error saving profile:', error);
-      alert('Failed to save profile: ' + error.message);
+      
+      // Handle Supabase errors properly
+      const errorMessage = error?.message || error?.error_description || JSON.stringify(error) || 'Unknown error occurred';
+      alert('Failed to save profile: ' + errorMessage);
     }
   };
 

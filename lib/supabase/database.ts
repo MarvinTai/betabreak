@@ -20,6 +20,8 @@ export async function getProfile(userId: string) {
 }
 
 export async function createProfile(userId: string, profile: Omit<UserProfile, 'id' | 'createdAt' | 'updatedAt'>) {
+  console.log('Creating profile for user:', userId);
+  
   const { data, error } = await supabase
     .from('profiles')
     .insert({
@@ -35,7 +37,11 @@ export async function createProfile(userId: string, profile: Omit<UserProfile, '
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error('Supabase insert error:', error);
+    throw new Error(error.message || 'Failed to create profile');
+  }
+  
   return data;
 }
 
@@ -50,6 +56,8 @@ export async function updateProfile(userId: string, profile: Partial<Omit<UserPr
   if (profile.weeklyAvailability) updateData.weekly_availability = profile.weeklyAvailability;
   if (profile.limitations) updateData.limitations = profile.limitations;
 
+  console.log('Updating profile for user:', userId, 'with data:', updateData);
+
   const { data, error } = await supabase
     .from('profiles')
     .update(updateData)
@@ -57,7 +65,11 @@ export async function updateProfile(userId: string, profile: Partial<Omit<UserPr
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error('Supabase update error:', error);
+    throw new Error(error.message || 'Failed to update profile');
+  }
+  
   return data;
 }
 
