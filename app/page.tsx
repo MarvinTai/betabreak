@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import ProfileSetupForm from '@/components/ProfileSetupForm';
 import { ProfileFormData } from '@/types';
 import { useAuth } from '@/lib/supabase/auth';
-import { getProfile, createProfile } from '@/lib/supabase/database';
+import { getProfile, createProfile, updateProfile } from '@/lib/supabase/database';
 
 export default function Home() {
   const router = useRouter();
@@ -40,10 +40,18 @@ export default function Home() {
     if (!user) return;
 
     try {
-      await createProfile(user.id, data);
-      router.push('/training-setup');
+      if (hasProfile) {
+        // Update existing profile
+        await updateProfile(user.id, data);
+        alert('Profile updated successfully! ✅');
+        setHasProfile(true); // Return to home view
+      } else {
+        // Create new profile
+        await createProfile(user.id, data);
+        router.push('/training-setup');
+      }
     } catch (error: any) {
-      console.error('Error creating profile:', error);
+      console.error('Error saving profile:', error);
       alert('Failed to save profile: ' + error.message);
     }
   };
