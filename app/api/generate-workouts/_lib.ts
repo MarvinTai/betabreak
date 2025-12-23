@@ -130,6 +130,15 @@ export function parseSingleWorkoutFromResponse(responseText: string, focusArea: 
     
     const w = workoutsArray[0]; // Get first (should be only) workout
     
+    // Validate that we have the minimum required fields
+    if (!w || typeof w !== 'object') {
+      throw new Error('Invalid workout format received from AI');
+    }
+    
+    if (!w.title) {
+      throw new Error('Workout missing title - response may be incomplete');
+    }
+    
     // Build the workout object with defaults
     const workout: Workout = {
       id: crypto.randomUUID(),
@@ -137,10 +146,10 @@ export function parseSingleWorkoutFromResponse(responseText: string, focusArea: 
       focus: Array.isArray(w.focus) && w.focus.length > 0 ? w.focus : [focusArea],
       estimatedDuration: w.estimatedDuration || 60,
       difficulty: w.difficulty || 'intermediate',
-      exercises: w.exercises || [],
-      warmup: w.warmup,
-      cooldown: w.cooldown,
-      notes: w.notes,
+      exercises: Array.isArray(w.exercises) ? w.exercises : [],
+      warmup: Array.isArray(w.warmup) ? w.warmup : [],
+      cooldown: Array.isArray(w.cooldown) ? w.cooldown : [],
+      notes: w.notes || '',
       createdAt: new Date(),
     };
     
