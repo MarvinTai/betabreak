@@ -16,6 +16,8 @@ export default function TrainingSetup() {
   const [generatedWorkouts, setGeneratedWorkouts] = useState<Workout[]>([]);
   const [selectedWorkout, setSelectedWorkout] = useState<Workout | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [progressMessage, setProgressMessage] = useState<string>('');
 
   useEffect(() => {
     // Load profile from localStorage
@@ -28,13 +30,15 @@ export default function TrainingSetup() {
   }, [router]);
 
   const handleGenerateWorkouts = async (focusData: TrainingFocusSelection) => {
-    if (!profile) return;
+    if (!profile || isGenerating) return;
 
+    setIsGenerating(true);
     setViewState('generating');
     setError(null);
 
     try {
-      const response = await fetch('/api/generate-workouts', {
+      // Step 1: Start the workout generation job
+      const startResponse = await fetch('/api/generate-workouts/start', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -47,39 +51,96 @@ export default function TrainingSetup() {
         }),
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        console.error('API Error:', response.status, response.statusText, data);
-        throw new Error(data?.details || data?.error || "Failed to generate workouts");
+      let startData;
+      try {
+        startData = await startResponse.json();
+      } catch (parseError) {
+        const text = await startResponse.text();
+        throw new Error(`Failed to parse start response: ${text}`);
       }
 
-      setGeneratedWorkouts(data.workouts);
-      
-      // Save workouts to localStorage
-      const existingWorkouts = localStorage.getItem('workouts');
-      const allWorkouts = existingWorkouts ? JSON.parse(existingWorkouts) : [];
-      const updatedWorkouts = [...allWorkouts, ...data.workouts];
-      localStorage.setItem('workouts', JSON.stringify(updatedWorkouts));
-      
-      // Save training focus selection
-      localStorage.setItem('trainingFocus', JSON.stringify(focusData));
+      if (!startResponse.ok) {
+        throw new Error(startData.error || 'Failed to start workout generation');
+      }
 
-      setViewState('results');
+      const { jobId } = startData;
+      console.log(`Job started: ${jobId}`);
+
+      // Step 2: Poll for job status
+      let attempts = 0;
+      const maxAttempts = 180; // 3 minutes max (180 * 1 second)
+      const pollInterval = 1000; // 1 second
+
+      const poll = async (): Promise<void> => {
+        attempts++;
+        
+        if (attempts > maxAttempts) {
+          throw new Error('Workout generation timed out. Please try again.');
+        }
+
+        const statusResponse = await fetch(`/api/generate-workouts/status?jobId=${jobId}`);
+        
+        let statusData;
+        try {
+          statusData = await statusResponse.json();
+        } catch (parseError) {
+          const text = await statusResponse.text();
+          console.error('Failed to parse status response:', text);
+          throw new Error('Failed to check generation status');
+        }
+
+        if (!statusResponse.ok) {
+          if (statusResponse.status === 404) {
+            throw new Error('Job not found. Please try again.');
+          }
+          throw new Error(statusData.error || 'Failed to check job status');
+        }
+
+        const { status, workouts, error: jobError } = statusData;
+        
+        console.log(`Job ${jobId} status: ${status} (attempt ${attempts})`);
+
+        if (status === 'done' && workouts) {
+          // Success! Save workouts
+          setGeneratedWorkouts(workouts);
+          
+          // Save workouts to localStorage
+          const existingWorkouts = localStorage.getItem('workouts');
+          const allWorkouts = existingWorkouts ? JSON.parse(existingWorkouts) : [];
+          const updatedWorkouts = [...allWorkouts, ...workouts];
+          localStorage.setItem('workouts', JSON.stringify(updatedWorkouts));
+          
+          // Save training focus selection
+          localStorage.setItem('trainingFocus', JSON.stringify(focusData));
+
+          setViewState('results');
+        } else if (status === 'error') {
+          throw new Error(jobError || 'Failed to generate workouts');
+        } else if (status === 'running') {
+          // Continue polling
+          await new Promise(resolve => setTimeout(resolve, pollInterval));
+          await poll();
+        }
+      };
+
+      await poll();
 
     } catch (err: any) {
       console.error('Error generating workouts:', err);
       setError(err.message || 'Failed to generate workouts. Please try again.');
       setViewState('form');
+    } finally {
+      setIsGenerating(false);
     }
   };
 
   const handleScheduleWorkout = (workout: Workout) => {
-    // For now, just save to localStorage
-    // Later, this will open a calendar modal
+    // Create properly structured scheduled workout
     const scheduled = {
-      ...workout,
+      id: crypto.randomUUID(),
+      workout: workout, // Full workout object
       scheduledDate: new Date().toISOString(),
+      completed: false,
     };
     
     const existingScheduled = localStorage.getItem('scheduledWorkouts');
@@ -87,7 +148,7 @@ export default function TrainingSetup() {
     allScheduled.push(scheduled);
     localStorage.setItem('scheduledWorkouts', JSON.stringify(allScheduled));
     
-    alert('Workout saved! Calendar feature coming soon.');
+    alert('Workout scheduled! Visit the Calendar to see it.');
   };
 
   const handleBackToForm = () => {
@@ -169,11 +230,18 @@ export default function TrainingSetup() {
               <h2 className="text-3xl font-bold mb-4 text-gray-900 dark:text-white">
                 Crafting Your Perfect Workout...
               </h2>
-              <p className="text-lg text-gray-600 dark:text-gray-400 mb-2">
+              <p className="text-lg text-gray-600 dark:text-gray-400 mb-4">
                 Our AI coach is analyzing your profile and creating personalized workouts tailored just for you.
               </p>
-              <p className="text-sm text-gray-500 dark:text-gray-500 font-medium">
-                ⏱️ This usually takes 10-30 seconds...
+              {progressMessage && (
+                <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+                  <p className="text-blue-800 dark:text-blue-300 font-semibold">
+                    {progressMessage}
+                  </p>
+                </div>
+              )}
+              <p className="text-sm text-gray-500 dark:text-gray-500 font-medium mt-4">
+                ⏱️ This usually takes 10-60 seconds...
               </p>
             </div>
           </div>
@@ -239,11 +307,15 @@ export default function TrainingSetup() {
                   <ul className="text-gray-700 dark:text-gray-300 space-y-3 text-lg">
                     <li className="flex items-start">
                       <span className="text-orange-500 mr-3 font-bold">→</span>
-                      Click <strong>"View Details"</strong> to see complete workout instructions
+                      Click <strong>&quot;View Details&quot;</strong> to see complete workout instructions
                     </li>
                     <li className="flex items-start">
                       <span className="text-orange-500 mr-3 font-bold">→</span>
-                      Click <strong>"Schedule Workout"</strong> to add it to your training calendar
+                      Click <strong>&quot;Schedule Workout&quot;</strong> to add it to your training calendar
+                    </li>
+                    <li className="flex items-start">
+                      <span className="text-orange-500 mr-3 font-bold">→</span>
+                      Visit the <button onClick={() => router.push('/calendar')} className="text-blue-600 dark:text-blue-400 underline font-bold hover:text-blue-700">Training Calendar</button> to plan your week
                     </li>
                     <li className="flex items-start">
                       <span className="text-orange-500 mr-3 font-bold">→</span>

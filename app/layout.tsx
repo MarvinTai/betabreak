@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import Navigation from "@/components/Navigation";
+import { AuthProvider } from "@/lib/supabase/auth";
 
 export const metadata: Metadata = {
   title: "Beta Break - AI Climbing Training",
@@ -14,7 +16,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased">
-        {children}
+        <AuthProvider>
+          <Navigation />
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );
