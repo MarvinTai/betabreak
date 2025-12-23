@@ -16,7 +16,21 @@ export async function getProfile(userId: string) {
     throw error;
   }
 
-  return data;
+  if (!data) return null;
+
+  // Transform snake_case from DB to camelCase for the app
+  return {
+    id: data.user_id,
+    name: data.name,
+    experienceYears: data.experience_years,
+    climbingLevels: data.climbing_levels,
+    goals: data.goals,
+    availableEquipment: data.available_equipment,
+    weeklyAvailability: data.weekly_availability,
+    limitations: data.limitations,
+    createdAt: new Date(data.created_at),
+    updatedAt: new Date(data.updated_at),
+  };
 }
 
 export async function createProfile(userId: string, profile: Omit<UserProfile, 'id' | 'createdAt' | 'updatedAt'>) {
@@ -42,7 +56,21 @@ export async function createProfile(userId: string, profile: Omit<UserProfile, '
     throw new Error(error.message || 'Failed to create profile');
   }
   
-  return data;
+  if (!data) return null;
+
+  // Transform snake_case from DB to camelCase for the app
+  return {
+    id: data.user_id,
+    name: data.name,
+    experienceYears: data.experience_years,
+    climbingLevels: data.climbing_levels,
+    goals: data.goals,
+    availableEquipment: data.available_equipment,
+    weeklyAvailability: data.weekly_availability,
+    limitations: data.limitations,
+    createdAt: new Date(data.created_at),
+    updatedAt: new Date(data.updated_at),
+  };
 }
 
 export async function updateProfile(userId: string, profile: Partial<Omit<UserProfile, 'id' | 'createdAt' | 'updatedAt'>>) {
@@ -70,7 +98,21 @@ export async function updateProfile(userId: string, profile: Partial<Omit<UserPr
     throw new Error(error.message || 'Failed to update profile');
   }
   
-  return data;
+  if (!data) return null;
+
+  // Transform snake_case from DB to camelCase for the app
+  return {
+    id: data.user_id,
+    name: data.name,
+    experienceYears: data.experience_years,
+    climbingLevels: data.climbing_levels,
+    goals: data.goals,
+    availableEquipment: data.available_equipment,
+    weeklyAvailability: data.weekly_availability,
+    limitations: data.limitations,
+    createdAt: new Date(data.created_at),
+    updatedAt: new Date(data.updated_at),
+  };
 }
 
 // ==================== WORKOUTS ====================
