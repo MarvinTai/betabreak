@@ -12,6 +12,8 @@ export default function Home() {
   const { user, loading: authLoading, signOut } = useAuth();
   const [hasProfile, setHasProfile] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [profileData, setProfileData] = useState<any>(null);
 
   useEffect(() => {
     async function checkProfile() {
@@ -25,6 +27,7 @@ export default function Home() {
       try {
         const profile = await getProfile(user.id);
         setHasProfile(!!profile);
+        setProfileData(profile); // Store the profile data
       } catch (error) {
         console.error('Error checking profile:', error);
         setHasProfile(false);
@@ -40,18 +43,21 @@ export default function Home() {
     if (!user) return;
 
     try {
-      console.log('Submitting profile...', { hasProfile, userId: user.id });
+      console.log('Submitting profile...', { hasProfile, isEditing, userId: user.id });
       
-      if (hasProfile) {
+      if (hasProfile && isEditing) {
         // Update existing profile
         console.log('Updating existing profile...');
         await updateProfile(user.id, data);
+        setProfileData(data); // Update local state
+        setIsEditing(false); // Exit edit mode
         alert('Profile updated successfully! ✅');
-        setHasProfile(true); // Return to home view
       } else {
         // Create new profile
         console.log('Creating new profile...');
         await createProfile(user.id, data);
+        setHasProfile(true);
+        setProfileData(data);
         router.push('/training-setup');
       }
     } catch (error: any) {
@@ -82,6 +88,30 @@ export default function Home() {
 
   if (!user) {
     return null; // Will redirect to auth
+  }
+
+  // If user has profile and is editing, show form
+  if (hasProfile && isEditing) {
+    return (
+      <main className="min-h-screen bg-climbing-pattern py-12 px-4">
+        <div className="max-w-5xl mx-auto">
+          {/* Edit Header */}
+          <div className="text-center mb-8">
+            <h1 className="text-4xl font-black mb-4 bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
+              Edit Your Profile
+            </h1>
+            <button
+              onClick={() => setIsEditing(false)}
+              className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white underline"
+            >
+              ← Back to Home
+            </button>
+          </div>
+          
+          <ProfileSetupForm onSubmit={handleProfileSubmit} initialData={profileData} />
+        </div>
+      </main>
+    );
   }
 
   // If user has profile, show option to edit or continue
@@ -155,7 +185,7 @@ export default function Home() {
             </button>
 
             <button
-              onClick={() => setHasProfile(false)}
+              onClick={() => setIsEditing(true)}
               className="card-climbing p-8 text-left group"
             >
               <div className="text-5xl mb-4 transform group-hover:scale-110 transition-transform">
